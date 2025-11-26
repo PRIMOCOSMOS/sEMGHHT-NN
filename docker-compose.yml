@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  semg-hht-classifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: semg-hht-classifier
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./semg_hht_cnn_classifier.ipynb:/app/semg_hht_cnn_classifier.ipynb
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # CPU-only version (comment out GPU version and uncomment this if no GPU)
+  # semg-hht-classifier-cpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.cpu
+  #   container_name: semg-hht-classifier-cpu
+  #   ports:
+  #     - "8888:8888"
+  #   volumes:
+  #     - ./data:/app/data
+  #     - ./models:/app/models
+  #     - ./semg_hht_cnn_classifier.ipynb:/app/semg_hht_cnn_classifier.ipynb
+  #   restart: unless-stopped

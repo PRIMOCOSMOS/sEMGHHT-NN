@@ -1,0 +1,23 @@
+# sEMG-HHT CNN Classifier Dependencies
+# For PyTorch with CUDA support on Kaggle/Colab, these are pre-installed
+
+# Core Deep Learning
+torch>=1.9.0
+torchvision>=0.10.0
+
+# Machine Learning
+scikit-learn>=0.24.0
+
+# Numerical Computing
+numpy>=1.19.0
+scipy>=1.7.0
+
+# Visualization
+matplotlib>=3.4.0
+
+# Signal Processing (for real HHT computation)
+PyEMD>=0.2.10
+
+# Jupyter Support
+jupyter>=1.0.0
+ipykernel>=6.0.0
