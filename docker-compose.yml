@@ -13,13 +13,16 @@ services:
       - ./models:/app/models
       - ./semg_hht_cnn_classifier.ipynb:/app/semg_hht_cnn_classifier.ipynb
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+      # Set to specific GPU device(s) if needed (e.g., "0" for first GPU, "0,1" for two GPUs)
+      # Use "all" for all available GPUs
+      - NVIDIA_VISIBLE_DEVICES=0
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              # Change to "all" if multiple GPUs are needed
+              count: 1
               capabilities: [gpu]
     restart: unless-stopped
 
