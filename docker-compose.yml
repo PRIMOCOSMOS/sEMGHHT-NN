@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  semg-hht-classifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: semg-hht-classifier
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./semg_hht_cnn_classifier.ipynb:/app/semg_hht_cnn_classifier.ipynb
+    environment:
+      # Set to specific GPU device(s) if needed (e.g., "0" for first GPU, "0,1" for two GPUs)
+      # Use "all" for all available GPUs
+      - NVIDIA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              # Change to "all" if multiple GPUs are needed
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # CPU-only version (comment out GPU version and uncomment this if no GPU)
+  # semg-hht-classifier-cpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.cpu
+  #   container_name: semg-hht-classifier-cpu
+  #   ports:
+  #     - "8888:8888"
+  #   volumes:
+  #     - ./data:/app/data
+  #     - ./models:/app/models
+  #     - ./semg_hht_cnn_classifier.ipynb:/app/semg_hht_cnn_classifier.ipynb
+  #   restart: unless-stopped
