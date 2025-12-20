@@ -227,8 +227,8 @@ def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     basename_lower = basename.lower()
     
     # Skip files with 'test' in name (but not 'fatiguetest')
-    # Check for patterns like: _test_, _test.npz, test_
-    if re.search(r'(?<!fatigue)test(?!_?(m|f)_\d)', basename_lower):
+    # Simple check: if contains 'test' but not 'fatiguetest', it's a test file
+    if 'test' in basename_lower and 'fatiguetest' not in basename_lower:
         return None
     
     # Extract gender (M or F)
@@ -409,7 +409,6 @@ def load_checkpoint(checkpoint_path: str,
 
 def train_with_checkpoints(data_dir: str,
                           checkpoint_dir: str = './checkpoints',
-                          checkpoint_interval: int = 5,
                           test_size: float = 0.2,
                           batch_size: int = 32,
                           device: torch.device = None,
@@ -417,8 +416,16 @@ def train_with_checkpoints(data_dir: str,
     """
     Train classifier with checkpoint saving and validation.
     
-    Note: SVM doesn't have epochs like neural networks. We train it once,
-    but we can still evaluate periodically on validation set.
+    Note: SVM doesn't have epochs like neural networks. We train it once
+    and save the trained model as a checkpoint.
+    
+    Args:
+        data_dir: Directory containing training data (.npz files)
+        checkpoint_dir: Directory to save checkpoints
+        test_size: Proportion of data to use for validation (0-1)
+        batch_size: Batch size for feature extraction
+        device: Device to use (cuda/cpu), auto-detected if None
+        resume: If True, resume from latest checkpoint if available
     """
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -453,7 +460,6 @@ def train_with_checkpoints(data_dir: str,
         print("\nResuming from checkpoint...")
         classifier, metadata = load_checkpoint(latest_checkpoint, device)
         history = metadata.get('history', {})
-        start_epoch = metadata.get('epoch', 0) + 1
     else:
         print("\nStarting new training...")
         classifier = sEMGHHTClassifier(
@@ -464,7 +470,6 @@ def train_with_checkpoints(data_dir: str,
             device=device
         )
         history = {'train_acc': [], 'val_acc': []}
-        start_epoch = 0
     
     # Train the classifier (SVM trains in one shot)
     if not classifier._is_fitted:
@@ -572,8 +577,6 @@ if __name__ == '__main__':
                        help='Directory containing .npz files with HHT matrices')
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints',
                        help='Directory to save checkpoints')
-    parser.add_argument('--checkpoint_interval', type=int, default=5,
-                       help='Save checkpoint every N epochs')
     parser.add_argument('--test_size', type=float, default=0.2,
                        help='Validation set size (0-1)')
     parser.add_argument('--batch_size', type=int, default=32,
@@ -590,7 +593,6 @@ if __name__ == '__main__':
     train_with_checkpoints(
         data_dir=args.data_dir,
         checkpoint_dir=args.checkpoint_dir,
-        checkpoint_interval=args.checkpoint_interval,
         test_size=args.test_size,
         batch_size=args.batch_size,
         device=device,
