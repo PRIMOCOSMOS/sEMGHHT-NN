@@ -8,7 +8,7 @@ This script trains a CNN-SVM classifier on sEMG Hilbert spectra for multi-label 
 Features:
 - Checkpoint saving and resuming
 - Automatic test file detection and post-training inference
-- Accuracy testing after each epoch
+- Accuracy testing on training and validation sets
 """
 
 import torch

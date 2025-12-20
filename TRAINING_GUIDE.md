@@ -79,7 +79,6 @@ python train.py --help
 Available options:
 - `--data_dir`: Directory containing .npz files (required)
 - `--checkpoint_dir`: Directory to save checkpoints (default: ./checkpoints)
-- `--checkpoint_interval`: Save checkpoint every N epochs (default: 5)
 - `--test_size`: Validation set size, 0-1 (default: 0.2)
 - `--batch_size`: Batch size for feature extraction (default: 32)
 - `--resume`: Resume from latest checkpoint
