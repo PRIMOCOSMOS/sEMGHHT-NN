@@ -1,6 +1,6 @@
 # sEMG-HHT CNN Classifier
 
-A Convolutional Neural Network (CNN) based classifier for surface electromyography (sEMG) signals using Hilbert-Huang Transform (HHT) representation. This project is designed for multi-class classification tasks such as movement quality assessment and fatigue detection.
+A Convolutional Neural Network (CNN) based classifier for surface electromyography (sEMG) signals using Hilbert-Huang Transform (HHT) representation. This project is designed for multi-class classification tasks such as movement quality assessment and gender classification.
 
 ## 🎯 Overview
 
@@ -25,12 +25,29 @@ This project implements a deep learning pipeline that:
 
 ## 📊 Classification Tasks
 
-The model supports multi-class classification for:
-- **Movement Quality**: High quality vs Low quality
-- **Fatigue Level**: Low fatigue vs High fatigue
-- Combined 4-class classification (Quality × Fatigue)
+The model supports multi-dimensional classification:
+- **Gender**: Male (M) vs Female (F)
+- **Movement Quality**: Full movement vs Half movement vs Invalid movement
+- **Combined 6-class classification** (Gender × Movement Quality)
 
 ## 🚀 Quick Start
+
+### Option 0: Command-Line Training Script (Recommended for Real Data)
+
+For training with real sEMG HHT data files:
+
+```bash
+# Generate sample data (for testing)
+python generate_sample_data.py --output_dir ./data --n_samples 30
+
+# Train the model
+python train.py --data_dir ./data --checkpoint_dir ./checkpoints
+
+# Resume training from checkpoint
+python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
+```
+
+See [TRAINING_GUIDE.md](TRAINING_GUIDE.md) for detailed usage instructions.
 
 ### Option 1: Run on Kaggle
 
@@ -83,18 +100,53 @@ docker run -p 8888:8888 -v $(pwd)/data:/app/data semg-hht-classifier-cpu
 
 ```
 sEMGHHT-NN/
-├── semg_hht_cnn_classifier.ipynb  # Main Jupyter notebook
-├── requirements.txt               # Python dependencies
-├── Dockerfile                     # GPU-enabled Docker image
-├── Dockerfile.cpu                 # CPU-only Docker image
-├── docker-compose.yml             # Docker Compose configuration
-├── data/                          # Data directory (create as needed)
-└── models/                        # Saved models (create as needed)
+├── semg_hht_cnn_classifier.ipynb  # Main Jupyter notebook (demo/exploration)
+├── train.py                        # Production training script with checkpoints
+├── generate_sample_data.py         # Generate synthetic data for testing
+├── TRAINING_GUIDE.md               # Detailed training guide
+├── requirements.txt                # Python dependencies
+├── Dockerfile                      # GPU-enabled Docker image
+├── Dockerfile.cpu                  # CPU-only Docker image
+├── docker-compose.yml              # Docker Compose configuration
+├── data/                           # Data directory (create as needed)
+├── checkpoints/                    # Model checkpoints (auto-created)
+└── models/                         # Saved models (create as needed)
 ```
 
 ## 🔧 Usage with Real Data
 
-### 1. Prepare HHT Matrices
+### Training Script Features
+
+The `train.py` script provides:
+- **Checkpoint saving**: Automatically saves model state at regular intervals
+- **Resume training**: Continue from the last checkpoint if interrupted
+- **6-class classification**: Gender (M/F) × Movement quality (Full/Half/Invalid)
+- **Automatic test file detection**: Files with 'test' in name are used for inference
+- **Validation metrics**: Accuracy and classification reports after training
+
+### Data File Format
+
+```python
+# File naming convention:
+# MUSCLENAME_movement_GENDER_###.npz
+
+# Examples:
+# BICEPS_fatiguetest_M_006.npz  -> Male, Full movement
+# TRICEPS_half_F_012.npz        -> Female, Half movement
+# FOREARM_invalid_M_003.npz     -> Male, Invalid movement
+# DELTOID_test_001.npz          -> Unlabeled test file
+
+# Each .npz file should contain a 256×256 HHT matrix
+import numpy as np
+hht_matrix = compute_your_hht(signal)  # 256×256 array
+np.savez('BICEPS_fatiguetest_M_001.npz', hht=hht_matrix)
+```
+
+See [TRAINING_GUIDE.md](TRAINING_GUIDE.md) for complete documentation.
+
+### 1. Prepare HHT Matrices (Jupyter Notebook)
+
+If using the Jupyter notebook for exploration:
 
 ```python
 from semg_hht_cnn_classifier import compute_hht_matrix
