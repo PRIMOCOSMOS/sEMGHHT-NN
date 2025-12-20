@@ -209,10 +209,59 @@ The CNN architecture remains unchanged:
 3. **Data Balance**: Ensure roughly equal samples per class for best results
 4. **Validation Size**: 20-30% validation split is recommended
 
+## Using Trained Models for Inference
+
+After training, you can use the `inference.py` script to make predictions on new data:
+
+### Single File Inference
+
+```bash
+python inference.py \
+  --checkpoint ./checkpoints/final \
+  --input ./new_data/BICEPS_unknown_001.npz \
+  --output predictions.json
+```
+
+### Batch Inference on Directory
+
+```bash
+python inference.py \
+  --checkpoint ./checkpoints/final \
+  --input ./new_data/ \
+  --output batch_predictions.json
+```
+
+### Command Line Options
+
+- `--checkpoint`: Path to checkpoint (without extension)
+- `--input`: Input file (.npz) or directory containing .npz files
+- `--output`: Output JSON file for predictions (optional)
+- `--batch_size`: Batch size for feature extraction (default: 32)
+- `--cpu`: Force CPU usage
+
+### Example Output
+
+```json
+{
+  "BICEPS_unknown_001.npz": {
+    "prediction": "M_full",
+    "confidence": 0.8523,
+    "probabilities": {
+      "M_full": 0.8523,
+      "M_half": 0.0234,
+      "M_invalid": 0.0145,
+      "F_full": 0.0567,
+      "F_half": 0.0321,
+      "F_invalid": 0.0210
+    }
+  }
+}
+```
+
 ## Next Steps
 
 After training:
 1. Check validation accuracy and classification report
 2. Review test file predictions in `test_predictions.json`
-3. Use the saved checkpoint for inference on new data
+3. Use `inference.py` with the saved checkpoint for inference on new data
 4. Fine-tune hyperparameters if needed (SVM C, kernel, etc.)
