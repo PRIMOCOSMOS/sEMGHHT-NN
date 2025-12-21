@@ -28,9 +28,12 @@ Examples:
 - `DELTOID_invalid_F_008.npz` → Female, Invalid movement
 - `BICEPS_wrong_M_002.npz` → Male, Invalid movement
 
-Test files (for inference only) should contain 'test' in the filename:
-- `BICEPS_test_001.npz`
-- `TRICEPS_test_M_002.npz`
+Test files (for inference only) should start with 'Test':
+- `Test1_1_015.npz`
+- `Test2_1_042.npz`
+- `test_sample_001.npz`
+
+**Note**: Files whose names start with "Test" (case-insensitive) will be treated as unlabeled test data and excluded from training.
 
 ### File Content
 

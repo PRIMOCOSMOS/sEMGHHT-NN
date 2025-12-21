@@ -218,15 +218,14 @@ def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     - TRICEPS_half_F_012.npz -> {gender: F, movement: half}
     - BICEPS_invalid_M_003.npz -> {gender: M, movement: invalid}
     
-    Returns None if filename contains 'test' (unlabeled test data)
+    Returns None if filename starts with 'Test' (unlabeled test data)
     Note: 'fatiguetest' is a valid movement type, not a test file
     """
     basename = os.path.basename(filename)
-    basename_lower = basename.lower()
     
-    # Skip files with 'test' in name (but not 'fatiguetest')
-    # Simple check: if contains 'test' but not 'fatiguetest', it's a test file
-    if 'test' in basename_lower and 'fatiguetest' not in basename_lower:
+    # Skip files that start with 'Test' (case-insensitive)
+    # Examples: Test1_1_015.npz, test_sample.npz
+    if basename.lower().startswith('test'):
         return None
     
     # Extract gender (M or F)
@@ -236,6 +235,7 @@ def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     gender = gender_match.group(1)
     
     # Extract movement quality
+    basename_lower = basename.lower()
     if 'fatiguetest' in basename_lower or 'full' in basename_lower:
         movement = 'full'
     elif 'half' in basename_lower:

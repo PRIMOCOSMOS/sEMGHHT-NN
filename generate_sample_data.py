@@ -110,13 +110,12 @@ def generate_dataset(output_dir, n_samples_per_class=20, n_test_samples=10):
     
     print(f"Generated {sample_count} training samples")
     
-    # Generate test samples (unlabeled, with 'test' in filename)
+    # Generate test samples (unlabeled, filename starts with 'Test')
     test_count = 0
     for i in range(n_test_samples):
-        muscle = np.random.choice(muscles)
-        sample_id = f"{i:03d}"
+        sample_id = f"{i + 1}_{test_count + 1:03d}"
         
-        filename = f"{muscle}_test_{sample_id}.npz"
+        filename = f"Test{sample_id}.npz"
         filepath = os.path.join(output_dir, filename)
         
         # Randomly pick a class for generation (but label not in filename)
