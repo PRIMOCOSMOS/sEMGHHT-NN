@@ -65,14 +65,15 @@ class sEMGHHTEncoder(nn.Module):
     
     Architecture:
     - Input: 1×256×256 (single-channel HHT matrix)
-    - 4-5 ConvBlocks with increasing channels (64→128→256→512→1024)
+    - Configurable number of ConvBlocks with increasing channels
     - Global Average Pooling
     - Output: Feature vector for classification
     
     Improvements:
-    - Deeper network for better feature extraction
+    - Configurable depth for better feature extraction
     - BatchNormalization for training stability
     - Proper weight initialization
+    - Input validation to ensure proper dimensions
     """
     
     def __init__(self, in_channels: int = 1, 
@@ -81,6 +82,16 @@ class sEMGHHTEncoder(nn.Module):
                  leaky_slope: float = 0.2,
                  use_batchnorm: bool = True):
         super(sEMGHHTEncoder, self).__init__()
+        
+        # Validate input parameters
+        if num_layers < 1:
+            raise ValueError(f"num_layers must be at least 1, got {num_layers}")
+        if num_layers > 8:
+            raise ValueError(f"num_layers must be at most 8 for 256x256 input (each layer halves spatial dims), got {num_layers}")
+        if base_channels < 1:
+            raise ValueError(f"base_channels must be positive, got {base_channels}")
+        if in_channels < 1:
+            raise ValueError(f"in_channels must be positive, got {in_channels}")
         
         self.in_channels = in_channels
         self.base_channels = base_channels
@@ -138,9 +149,9 @@ class ActionQualityCNNClassifier(nn.Module):
     Deep Learning CNN Classifier for Action Quality (Full/Half/Invalid).
     
     This is an end-to-end trainable neural network with:
-    - Improved CNN encoder (5 layers)
+    - Configurable CNN encoder (flexible number of layers)
     - Dropout for regularization
-    - Fully connected classification head
+    - Fully connected classification head (adaptive to encoder size)
     - 3 output classes: Full, Half, Invalid
     """
     
@@ -152,6 +163,12 @@ class ActionQualityCNNClassifier(nn.Module):
                  num_classes: int = 3):
         super(ActionQualityCNNClassifier, self).__init__()
         
+        # Validate parameters
+        if num_classes < 2:
+            raise ValueError(f"num_classes must be at least 2, got {num_classes}")
+        if not 0 <= dropout_rate < 1:
+            raise ValueError(f"dropout_rate must be in [0, 1), got {dropout_rate}")
+        
         # Encoder
         self.encoder = sEMGHHTEncoder(
             in_channels=in_channels,
@@ -162,18 +179,24 @@ class ActionQualityCNNClassifier(nn.Module):
         
         feature_dim = self.encoder.get_feature_dim()
         
+        # Adaptive classification head: scale intermediate layers based on feature_dim
+        # For small feature_dim (shallow networks), use smaller intermediate layers
+        # For large feature_dim (deep networks), use larger intermediate layers
+        hidden_dim_1 = min(max(256, feature_dim // 4), 1024)
+        hidden_dim_2 = min(max(128, feature_dim // 8), 512)
+        
         # Classification head with dropout
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
-            nn.Linear(feature_dim, 256),
-            nn.BatchNorm1d(256),
+            nn.Linear(feature_dim, hidden_dim_1),
+            nn.BatchNorm1d(hidden_dim_1),
             nn.ReLU(),
             nn.Dropout(dropout_rate),
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
+            nn.Linear(hidden_dim_1, hidden_dim_2),
+            nn.BatchNorm1d(hidden_dim_2),
             nn.ReLU(),
             nn.Dropout(dropout_rate / 2),
-            nn.Linear(128, num_classes)
+            nn.Linear(hidden_dim_2, num_classes)
         )
         
         # Initialize classifier weights
@@ -573,10 +596,29 @@ def save_action_quality_checkpoint(model: ActionQualityCNNClassifier,
                                   history: dict = None,
                                   label_encoder: LabelEncoder = None,
                                   best_val_acc: float = 0.0):
-    """Save action quality model checkpoint."""
+    """
+    Save action quality model checkpoint with atomic write and disk space check.
+    
+    Uses temporary file and rename to ensure atomic write operation.
+    Checks available disk space before saving.
+    """
     checkpoint_dir = os.path.dirname(checkpoint_path)
     if checkpoint_dir and not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
+    
+    final_path = f"{checkpoint_path}_action_quality.pt"
+    temp_path = f"{final_path}.tmp"
+    
+    # Check available disk space (estimate needed: ~100MB per checkpoint)
+    try:
+        import shutil
+        stat = shutil.disk_usage(checkpoint_dir if checkpoint_dir else '.')
+        available_gb = stat.free / (1024 ** 3)
+        if available_gb < 0.5:  # Less than 500MB free
+            print(f"Warning: Low disk space ({available_gb:.2f} GB free). Skipping checkpoint save.")
+            return
+    except Exception as e:
+        print(f"Warning: Could not check disk space: {e}")
     
     checkpoint = {
         'epoch': epoch,
@@ -587,8 +629,21 @@ def save_action_quality_checkpoint(model: ActionQualityCNNClassifier,
         'best_val_acc': best_val_acc
     }
     
-    torch.save(checkpoint, f"{checkpoint_path}_action_quality.pt")
-    print(f"Action quality checkpoint saved at epoch {epoch}: {checkpoint_path}_action_quality.pt")
+    try:
+        # Save to temporary file first
+        torch.save(checkpoint, temp_path)
+        # Atomic rename (on most filesystems)
+        os.replace(temp_path, final_path)
+        print(f"Action quality checkpoint saved at epoch {epoch}: {final_path}")
+    except Exception as e:
+        print(f"Error saving checkpoint: {e}")
+        # Clean up temp file if it exists
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        raise
 
 
 def save_gender_checkpoint(classifier: GenderSVMClassifier,
@@ -686,6 +741,8 @@ def train_with_checkpoints(data_dir: str,
                           batch_size: int = 32,
                           epochs: int = 100,
                           learning_rate: float = 0.001,
+                          num_encoder_layers: int = 5,
+                          base_channels: int = 64,
                           device: torch.device = None,
                           resume: bool = False):
     """
@@ -702,6 +759,8 @@ def train_with_checkpoints(data_dir: str,
         batch_size: Batch size for training
         epochs: Number of training epochs for action quality CNN
         learning_rate: Learning rate for CNN training
+        num_encoder_layers: Number of convolutional layers in encoder (1-8)
+        base_channels: Base number of channels in first conv layer (default: 64)
         device: Device to use (cuda/cpu), auto-detected if None
         resume: If True, resume from latest checkpoint if available
     """
@@ -762,12 +821,16 @@ def train_with_checkpoints(data_dir: str,
     print("\n" + "="*60)
     print("PART 2: Training Action Quality Classifier (Deep Learning CNN)")
     print("="*60)
+    print(f"Model Configuration:")
+    print(f"  - Encoder Layers: {num_encoder_layers}")
+    print(f"  - Base Channels: {base_channels}")
+    print(f"  - Feature Dimension: {base_channels * (2 ** (num_encoder_layers - 1))}")
     
     # Initialize action quality model
     action_model = ActionQualityCNNClassifier(
         in_channels=1,
-        base_channels=64,
-        num_encoder_layers=5,
+        base_channels=base_channels,
+        num_encoder_layers=num_encoder_layers,
         dropout_rate=0.5,
         num_classes=3
     ).to(device)
@@ -1174,6 +1237,10 @@ if __name__ == '__main__':
                        help='Number of training epochs for action quality CNN')
     parser.add_argument('--learning_rate', type=float, default=0.001,
                        help='Learning rate for action quality CNN training')
+    parser.add_argument('--num_encoder_layers', type=int, default=5,
+                       help='Number of convolutional layers in CNN encoder (1-8, default: 5)')
+    parser.add_argument('--base_channels', type=int, default=64,
+                       help='Base number of channels in first conv layer (default: 64)')
     parser.add_argument('--resume', action='store_true',
                        help='Resume from latest checkpoint')
     parser.add_argument('--cpu', action='store_true',
@@ -1190,6 +1257,8 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
+        num_encoder_layers=args.num_encoder_layers,
+        base_channels=args.base_channels,
         device=device,
         resume=args.resume
     )
