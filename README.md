@@ -6,47 +6,55 @@
 
 ## <a name="english"></a>English Version
 
-A Convolutional Neural Network (CNN) based classifier for surface electromyography (sEMG) signals using Hilbert-Huang Transform (HHT) representation. This project is designed for multi-class classification tasks such as movement quality assessment and gender classification.
+A dual classification system for surface electromyography (sEMG) signals using Hilbert-Huang Transform (HHT) representation. This project separates gender and movement quality classification into specialized models for better accuracy.
 
 ### 🎯 Overview
 
-This project implements a deep learning pipeline that:
-1. Takes 256×256 HHT matrices as input (derived from sEMG signals)
-2. Extracts features using a 3-layer CNN encoder
-3. Performs multi-class classification using SVM or end-to-end neural network
+This project implements a dual deep learning pipeline:
+1. **Deep Learning CNN** for Action Quality (Full, Half, Invalid) - 3 classes
+2. **SVM Classifier** for Gender Classification (M, F) - 2 classes
+
+**Key Features:**
+- ✅ Deeper CNN architecture (5 layers, 1024 channels)
+- ✅ BatchNormalization for training stability
+- ✅ Proper weight initialization (Kaiming)
+- ✅ Learning rate scheduling
+- ✅ Data normalization
+- ✅ Separate optimized models for each task
+
+**📖 NEW: [Dual Classifier System Guide](DUAL_CLASSIFIER_GUIDE.md)** - Complete documentation on the new architecture, improvements, and usage.
 
 ### 🏗️ Model Architecture
 
 **CNN Encoder Structure:**
-- **3 Convolutional Layers**, each containing:
+- **5 Convolutional Layers**, each containing:
   - Conv2D (kernel=3, stride=2, padding=1)
-  - Instance Normalization (maintains data distribution per sample)
+  - Batch Normalization (training stability)
   - LeakyReLU activation (slope=0.2)
 - **Global Average Pooling** at the end
-- Output: 256-dimensional feature vector
+- Output: 1024-dimensional feature vector
 
 **Classifier Options:**
-1. **CNN-SVM (Recommended)**: CNN extracts features → SVM classifies (supports 6-class classification)
-2. **End-to-End**: Fully trainable neural network with FC layers
+1. **Action Quality CNN**: 5-layer CNN → Dropout → FC layers → 3 classes
+2. **Gender SVM**: CNN features → StandardScaler → RBF SVM → 2 classes
 
 ### 📊 Classification Task
 
-**6-Class Multi-Dimensional Classification:**
-- **Gender Dimension**: Male (M) / Female (F)
-- **Movement Quality Dimension**: 
-  - Full (完整动作): Complete movement range
-  - Half (半程动作): Partial movement range  
-  - Invalid (无效动作): Incorrect or failed movement
+**Dual Classification System:**
+- **Action Quality**: 3 classes (Full, Half, Invalid) - Deep Learning CNN
+- **Gender**: 2 classes (Male, Female) - SVM
+
+**Why Dual Classifiers?**
+- Better accuracy through task-specific optimization
+- Faster convergence for each simpler task
+- More stable training dynamics
+- Easier to debug and improve
 
 **Class Mapping:**
-| Class ID | Label | Gender | Movement |
-|----------|-------|--------|----------|
-| 0 | M_full | Male | Full |
-| 1 | M_half | Male | Half |
-| 2 | M_invalid | Male | Invalid |
-| 3 | F_full | Female | Full |
-| 4 | F_half | Female | Half |
-| 5 | F_invalid | Female | Invalid |
+| Task | Classes | Model Type |
+|------|---------|------------|
+| Action Quality | Full, Half, Invalid | Deep CNN (5 layers) |
+| Gender | M, F | SVM (RBF kernel) |
 
 ### 🚀 Quick Start
 
@@ -65,8 +73,17 @@ The notebook automatically detects Kaggle environment and loads data from `/kagg
 # Install dependencies
 pip install -r requirements.txt
 
-# Train with your data
-python train.py --data_dir ./data --checkpoint_dir ./checkpoints
+# Train with your data (new dual classifier system)
+python train.py --data_dir ./data --checkpoint_dir ./checkpoints --epochs 100
+
+# Advanced training with custom parameters
+python train.py \
+    --data_dir ./data \
+    --checkpoint_dir ./checkpoints \
+    --epochs 100 \
+    --batch_size 16 \
+    --learning_rate 0.001 \
+    --test_size 0.2
 
 # Resume from checkpoint
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
@@ -75,7 +92,7 @@ python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
 python inference.py --checkpoint ./checkpoints/final --input ./new_data/
 ```
 
-See [TRAINING_GUIDE.md](TRAINING_GUIDE.md) for detailed instructions.
+See [DUAL_CLASSIFIER_GUIDE.md](DUAL_CLASSIFIER_GUIDE.md) for detailed instructions on the new architecture.
 
 ### 📁 Data Format
 
@@ -135,47 +152,55 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 
 ## <a name="chinese"></a>中文版本
 
-基于卷积神经网络（CNN）的表面肌电信号（sEMG）分类器，使用希尔伯特-黄变换（HHT）表示。该项目设计用于动作质量评估和性别分类等多类分类任务。
+基于卷积神经网络（CNN）的表面肌电信号（sEMG）双分类器系统，使用希尔伯特-黄变换（HHT）表示。该项目将性别和动作质量分类分离为专门的模型以获得更好的准确性。
 
 ### 🎯 概述
 
-该项目实现了一个深度学习流程：
-1. 输入 256×256 的 HHT 矩阵（从 sEMG 信号导出）
-2. 使用 3 层 CNN 编码器提取特征
-3. 使用 SVM 或端到端神经网络进行多类分类
+该项目实现了双重深度学习流程：
+1. **深度学习CNN** 用于动作质量（全程、半程、无效）- 3类
+2. **SVM分类器** 用于性别分类（男、女）- 2类
+
+**主要特点：**
+- ✅ 更深的CNN架构（5层，1024通道）
+- ✅ BatchNormalization以提高训练稳定性
+- ✅ 正确的权重初始化（Kaiming）
+- ✅ 学习率调度
+- ✅ 数据归一化
+- ✅ 每个任务的单独优化模型
+
+**📖 新增：[双分类器系统指南](DUAL_CLASSIFIER_GUIDE.md)** - 关于新架构、改进和使用的完整文档。
 
 ### 🏗️ 模型架构
 
 **CNN 编码器结构：**
-- **3 个卷积层**，每层包含：
+- **5 个卷积层**，每层包含：
   - Conv2D（kernel=3, stride=2, padding=1）
-  - 实例归一化（Instance Normalization，保持每个样本的数据分布）
+  - Batch Normalization（训练稳定性）
   - LeakyReLU 激活函数（slope=0.2）
 - 末尾使用**全局平均池化**
-- 输出：256 维特征向量
+- 输出：1024 维特征向量
 
 **分类器选项：**
-1. **CNN-SVM（推荐）**：CNN 提取特征 → SVM 分类（支持 6 类分类）
-2. **端到端模型**：全连接层的完全可训练神经网络
+1. **动作质量CNN**：5层CNN → Dropout → 全连接层 → 3类
+2. **性别SVM**：CNN特征 → StandardScaler → RBF SVM → 2类
 
 ### 📊 分类任务
 
-**6 类多维分类：**
-- **性别维度**：男性 (M) / 女性 (F)
-- **动作质量维度**：
-  - Full（完整动作）：完整的运动范围
-  - Half（半程动作）：部分运动范围
-  - Invalid（无效动作）：错误或失败的动作
+**双分类器系统：**
+- **动作质量**：3类（全程、半程、无效）- 深度学习CNN
+- **性别**：2类（男性、女性）- SVM
+
+**为什么使用双分类器？**
+- 通过特定任务优化获得更好的准确性
+- 每个简单任务更快收敛
+- 更稳定的训练动态
+- 更容易调试和改进
 
 **类别映射：**
-| 类别 ID | 标签 | 性别 | 动作 |
-|---------|------|------|------|
-| 0 | M_full | 男性 | 完整 |
-| 1 | M_half | 男性 | 半程 |
-| 2 | M_invalid | 男性 | 无效 |
-| 3 | F_full | 女性 | 完整 |
-| 4 | F_half | 女性 | 半程 |
-| 5 | F_invalid | 女性 | 无效 |
+| 任务 | 类别 | 模型类型 |
+|------|------|----------|
+| 动作质量 | 全程、半程、无效 | 深度CNN（5层）|
+| 性别 | 男、女 | SVM（RBF核）|
 
 ### 🚀 快速开始
 
@@ -194,8 +219,17 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 # 安装依赖
 pip install -r requirements.txt
 
-# 使用您的数据训练
-python train.py --data_dir ./data --checkpoint_dir ./checkpoints
+# 使用您的数据训练（新的双分类器系统）
+python train.py --data_dir ./data --checkpoint_dir ./checkpoints --epochs 100
+
+# 使用自定义参数的高级训练
+python train.py \
+    --data_dir ./data \
+    --checkpoint_dir ./checkpoints \
+    --epochs 100 \
+    --batch_size 16 \
+    --learning_rate 0.001 \
+    --test_size 0.2
 
 # 从检查点恢复训练
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
@@ -204,7 +238,7 @@ python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
 python inference.py --checkpoint ./checkpoints/final --input ./new_data/
 ```
 
-详细说明请参见 [TRAINING_GUIDE.md](TRAINING_GUIDE.md)。
+详细说明请参见 [双分类器系统指南](DUAL_CLASSIFIER_GUIDE.md)。
 
 ### 📁 数据格式
 
