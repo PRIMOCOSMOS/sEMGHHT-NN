@@ -28,19 +28,28 @@ This project implements a dual deep learning pipeline:
 
 ### 🏗️ Model Architecture
 
-**Expanded CNN Encoder Structure (7 Layers):** - **UPGRADED!**
-- **7 Convolutional Layers**, each containing:
+**Configurable CNN Encoder Structure (1-8 Layers):** - **CONFIGURABLE!**
+- **Flexible depth** from 1 to 8 convolutional layers (default: 5)
+- Each convolutional layer contains:
   - Conv2D (kernel=3, stride=2, padding=1, bias=False)
   - **Batch Normalization** (training stability)
   - LeakyReLU activation (slope=0.2)
   - **Kaiming initialization** (proper gradient flow)
-- **Residual connections** in deeper layers
+- **Residual connections** in deeper layers (6+)
 - **Global Average Pooling** at the end
-- **Channel progression**: 64 → 128 → 256 → 512 → 1024 → 2048 → 2048
-- Output: **2048-dimensional feature vector** (8x larger than before!)
+- **Channel progression**: 64 → 128 → 256 → 512 → 1024 → 2048 → ...
+- Output: **Feature vector** (size depends on num_layers)
+  - 3 layers: 256-dim
+  - 5 layers: 1024-dim
+  - 7 layers: 2048-dim
+  - 8 layers: 2048-dim
+
+**Adaptive Classifier Head:**
+- Automatically scales intermediate layer sizes based on encoder depth
+- Ensures smooth gradient flow regardless of network configuration
 
 **Classifier Options:**
-1. **Action Quality CNN**: 7-layer CNN → Dropout → 3-layer FC (2048→1024→512→3) → 3 classes
+1. **Action Quality CNN**: Configurable CNN → Dropout → Adaptive FC layers → 3 classes
 2. **Gender SVM**: CNN features → StandardScaler → RBF SVM → 2 classes
 
 ### 📊 Classification Task
@@ -58,15 +67,24 @@ This project implements a dual deep learning pipeline:
 **Class Mapping:**
 | Task | Classes | Model Type |
 |------|---------|------------|
-| Action Quality | Full, Half, Invalid | Deep CNN (7 layers) **[UPGRADED]** |
+| Action Quality | Full, Half, Invalid | Deep CNN (configurable 1-8 layers) **[CONFIGURABLE]** |
 | Gender | M, F | SVM (RBF kernel) |
 
-### 🆕 Recent Improvements (2025-12-22)
+### 🆕 Recent Improvements
+
+**2025-12-22 (Latest Update):**
+1. **Configurable Network Depth** - Number of layers now configurable as hyperparameter (1-8 layers)
+2. **Adaptive Architecture** - Classifier head automatically scales with encoder depth
+3. **Parameter Validation** - Input validation ensures proper dimensions throughout training
+4. **Safe Checkpoint Saving** - Atomic writes with disk space checks prevent corruption
+5. **Command-line Control** - New `--num_encoder_layers` and `--base_channels` arguments
+
+**Previous Improvements (2025-12-22):**
 
 **Problem Solved:** Previous notebook had issues with loss barely decreasing and accuracy not improving.
 
 **Key Solutions:**
-1. **Expanded Network** - From 3-5 layers to **7 layers** with 2048-dim features (8x increase)
+1. **Expanded Network** - From 3-5 layers to **configurable depth** (default 7 layers)
 2. **Better Initialization** - Kaiming initialization prevents vanishing/exploding gradients
 3. **Batch Normalization** - Replaced InstanceNorm for faster, more stable training
 4. **Learning Rate Strategy** - Lowered LR (0.0001) + warmup (5 epochs) + cosine annealing
@@ -97,14 +115,30 @@ pip install -r requirements.txt
 # Train with your data (new dual classifier system)
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --epochs 100
 
-# Advanced training with custom parameters
+# Advanced training with custom parameters and configurable network depth
 python train.py \
     --data_dir ./data \
     --checkpoint_dir ./checkpoints \
     --epochs 100 \
     --batch_size 16 \
     --learning_rate 0.001 \
+    --num_encoder_layers 5 \
+    --base_channels 64 \
     --test_size 0.2
+
+# Train with deeper network (7 layers, more features)
+python train.py \
+    --data_dir ./data \
+    --num_encoder_layers 7 \
+    --base_channels 64 \
+    --epochs 100
+
+# Train with shallower network (3 layers, faster training)
+python train.py \
+    --data_dir ./data \
+    --num_encoder_layers 3 \
+    --base_channels 64 \
+    --epochs 100
 
 # Resume from checkpoint
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
@@ -112,6 +146,13 @@ python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
 # Run inference
 python inference.py --checkpoint ./checkpoints/final --input ./new_data/
 ```
+
+**New Parameters:**
+- `--num_encoder_layers`: Number of CNN layers (1-8, default: 5)
+  - More layers = deeper network, better feature extraction, slower training
+  - Fewer layers = faster training, less memory usage
+- `--base_channels`: Base number of channels (default: 64)
+  - Higher values = more parameters, better capacity
 
 See [DUAL_CLASSIFIER_GUIDE.md](DUAL_CLASSIFIER_GUIDE.md) for detailed instructions on the new architecture.
 
@@ -182,8 +223,10 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 2. **SVM分类器** 用于性别分类（男、女）- 2类
 
 **主要特点：**
-- ✅ **扩展的CNN架构**（7层，2048通道）- **新！**
+- ✅ **可配置的CNN架构**（1-8层，灵活深度）- **新功能！**
+- ✅ **自适应分类头**根据网络深度自动调整
 - ✅ **批归一化** + Kaiming初始化以提高训练稳定性
+- ✅ **安全的检查点保存**防止磁盘空间不足导致的损坏
 - ✅ **学习率预热** + 余弦退火调度
 - ✅ **梯度裁剪**防止梯度爆炸
 - ✅ **标签平滑**提高泛化能力
@@ -195,19 +238,28 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 
 ### 🏗️ 模型架构
 
-**扩展的CNN编码器结构（7层）：** - **升级！**
-- **7 个卷积层**，每层包含：
+**可配置的CNN编码器结构（1-8层）：** - **可配置！**
+- **灵活深度** 从1到8个卷积层（默认：5层）
+- 每个卷积层包含：
   - Conv2D（kernel=3, stride=2, padding=1, bias=False）
   - **批归一化**（训练稳定性）
   - LeakyReLU 激活函数（slope=0.2）
   - **Kaiming初始化**（正确的梯度流动）
-- **残差连接**在更深层中
+- **残差连接**在更深层中（第6层及以上）
 - 末尾使用**全局平均池化**
-- **通道递增序列**：64 → 128 → 256 → 512 → 1024 → 2048 → 2048
-- 输出：**2048 维特征向量**（比之前大8倍！）
+- **通道递增序列**：64 → 128 → 256 → 512 → 1024 → 2048 → ...
+- 输出：**特征向量**（大小取决于层数）
+  - 3层：256维
+  - 5层：1024维
+  - 7层：2048维
+  - 8层：2048维
+
+**自适应分类头：**
+- 根据编码器深度自动调整中间层大小
+- 确保无论网络配置如何都能平滑的梯度流动
 
 **分类器选项：**
-1. **动作质量CNN**：7层CNN → Dropout → 3层全连接 (2048→1024→512→3) → 3类
+1. **动作质量CNN**：可配置CNN → Dropout → 自适应全连接层 → 3类
 2. **性别SVM**：CNN特征 → StandardScaler → RBF SVM → 2类
 
 ### 📊 分类任务
@@ -225,15 +277,24 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 **类别映射：**
 | 任务 | 类别 | 模型类型 |
 |------|------|----------|
-| 动作质量 | 全程、半程、无效 | 深度CNN（7层）**[升级]** |
+| 动作质量 | 全程、半程、无效 | 深度CNN（可配置1-8层）**[可配置]** |
 | 性别 | 男、女 | SVM（RBF核）|
 
-### 🆕 最近改进（2025-12-22）
+### 🆕 最近改进
+
+**2025-12-22（最新更新）：**
+1. **可配置的网络深度** - 层数现在可作为超参数配置（1-8层）
+2. **自适应架构** - 分类头根据编码器深度自动调整
+3. **参数验证** - 输入验证确保训练过程中的正确维度
+4. **安全的检查点保存** - 原子写入和磁盘空间检查防止损坏
+5. **命令行控制** - 新增 `--num_encoder_layers` 和 `--base_channels` 参数
+
+**之前的改进（2025-12-22）：**
 
 **解决的问题：** 之前的笔记本存在损失几乎不下降、准确率不提升的问题。
 
 **关键解决方案：**
-1. **扩展网络** - 从3-5层扩展到**7层**，特征维度2048（增加8倍）
+1. **扩展网络** - 从3-5层扩展到**可配置深度**（默认7层）
 2. **更好的初始化** - Kaiming初始化防止梯度消失/爆炸
 3. **批归一化** - 替换InstanceNorm，实现更快更稳定的训练
 4. **学习率策略** - 降低学习率(0.0001) + 预热(5轮) + 余弦退火
@@ -264,14 +325,30 @@ pip install -r requirements.txt
 # 使用您的数据训练（新的双分类器系统）
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --epochs 100
 
-# 使用自定义参数的高级训练
+# 使用自定义参数和可配置网络深度的高级训练
 python train.py \
     --data_dir ./data \
     --checkpoint_dir ./checkpoints \
     --epochs 100 \
     --batch_size 16 \
     --learning_rate 0.001 \
+    --num_encoder_layers 5 \
+    --base_channels 64 \
     --test_size 0.2
+
+# 使用更深的网络训练（7层，更多特征）
+python train.py \
+    --data_dir ./data \
+    --num_encoder_layers 7 \
+    --base_channels 64 \
+    --epochs 100
+
+# 使用更浅的网络训练（3层，更快训练）
+python train.py \
+    --data_dir ./data \
+    --num_encoder_layers 3 \
+    --base_channels 64 \
+    --epochs 100
 
 # 从检查点恢复训练
 python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
@@ -279,6 +356,13 @@ python train.py --data_dir ./data --checkpoint_dir ./checkpoints --resume
 # 运行推理
 python inference.py --checkpoint ./checkpoints/final --input ./new_data/
 ```
+
+**新参数：**
+- `--num_encoder_layers`: CNN层数（1-8，默认：5）
+  - 更多层 = 更深网络，更好的特征提取，训练更慢
+  - 更少层 = 训练更快，内存使用更少
+- `--base_channels`: 基础通道数（默认：64）
+  - 更高的值 = 更多参数，更好的容量
 
 详细说明请参见 [双分类器系统指南](DUAL_CLASSIFIER_GUIDE.md)。
 
