@@ -214,6 +214,12 @@ class GenderSVMClassifier:
                  svm_C: float = 10.0,
                  svm_gamma: str = 'scale',
                  device: torch.device = torch.device('cpu')):
+        # Validate device parameter
+        if isinstance(device, str):
+            device = torch.device(device)
+        elif not isinstance(device, torch.device):
+            raise TypeError(f"device must be torch.device or str, got {type(device)}")
+        
         self.device = device
         
         if encoder is None:
@@ -402,6 +408,28 @@ class sEMGHHTClassifier:
         }
 
 
+def normalize_hht_matrix(hht_matrix: np.ndarray, epsilon: float = 1e-8) -> np.ndarray:
+    """
+    Normalize HHT matrix to [0, 1] range.
+    
+    Args:
+        hht_matrix: Input HHT matrix
+        epsilon: Small value to prevent division by zero
+    
+    Returns:
+        Normalized matrix in [0, 1] range
+    """
+    min_val = hht_matrix.min()
+    max_val = hht_matrix.max()
+    
+    # Avoid division by zero with epsilon
+    if max_val - min_val < epsilon:
+        # If matrix is nearly constant, return zeros
+        return np.zeros_like(hht_matrix, dtype=np.float32)
+    
+    return ((hht_matrix - min_val) / (max_val - min_val + epsilon)).astype(np.float32)
+
+
 def parse_filename(filename: str) -> Optional[Dict[str, str]]:
     """
     Parse filename to extract labels.
@@ -500,8 +528,7 @@ def load_data_from_directory(data_dir: str) -> Tuple[np.ndarray, np.ndarray, np.
                 continue
             
             # Normalize data to [0, 1] range for better training
-            if hht_matrix.max() > hht_matrix.min():
-                hht_matrix = (hht_matrix - hht_matrix.min()) / (hht_matrix.max() - hht_matrix.min())
+            hht_matrix = normalize_hht_matrix(hht_matrix)
             
             # Create separate labels
             gender_label = gender_encoder.transform([labels['gender']])[0]
@@ -906,9 +933,8 @@ def train_with_checkpoints(data_dir: str,
                     hht_matrix = data[list(data.keys())[0]]
                 
                 if hht_matrix.shape == (256, 256):
-                    # Normalize
-                    if hht_matrix.max() > hht_matrix.min():
-                        hht_matrix = (hht_matrix - hht_matrix.min()) / (hht_matrix.max() - hht_matrix.min())
+                    # Normalize using the same function as training data
+                    hht_matrix = normalize_hht_matrix(hht_matrix)
                     X_test_list.append(hht_matrix)
                     valid_test_files.append(test_file)
             except Exception as e:
@@ -1143,7 +1169,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_size', type=float, default=0.2,
                        help='Validation set size (0-1)')
     parser.add_argument('--batch_size', type=int, default=16,
-                       help='Batch size for training')
+                       help='Batch size for training (default: 16, optimized for 256x256 images with limited memory)')
     parser.add_argument('--epochs', type=int, default=100,
                        help='Number of training epochs for action quality CNN')
     parser.add_argument('--learning_rate', type=float, default=0.001,

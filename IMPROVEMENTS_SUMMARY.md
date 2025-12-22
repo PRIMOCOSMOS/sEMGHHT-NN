@@ -3,13 +3,13 @@
 
 ## Problem Statement | 问题陈述
 
-**Original Issues (原问题):**
-1. Loss barely decreased during training (训练中损失几乎不下降)
-2. Accuracy hardly improved (准确率几乎不提升)
+**Original Issues:**
+1. Loss barely decreased during training
+2. Accuracy hardly improved  
 3. Single model trying to classify 6 classes (M_full, M_half, M_invalid, F_full, F_half, F_invalid)
 4. Network architecture too shallow (3 layers)
 5. No proper data normalization
-6. Poor weight initialization
+6. Inadequate weight initialization
 
 ## Solutions Implemented | 实施的解决方案
 
