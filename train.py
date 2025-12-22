@@ -26,6 +26,7 @@ import re
 from typing import Tuple, Optional, Dict, List
 import warnings
 import json
+import math
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
@@ -34,6 +35,10 @@ warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 SEED = 42
 torch.manual_seed(SEED)
 np.random.seed(SEED)
+
+# Configuration constants
+MIN_DISK_SPACE_GB = 0.5  # Minimum free disk space (GB) before saving checkpoints
+DEFAULT_INPUT_SIZE = 256  # Default HHT matrix size (256x256)
 
 
 class ConvBlock(nn.Module):
@@ -80,14 +85,20 @@ class sEMGHHTEncoder(nn.Module):
                  base_channels: int = 64,
                  num_layers: int = 5,
                  leaky_slope: float = 0.2,
-                 use_batchnorm: bool = True):
+                 use_batchnorm: bool = True,
+                 input_size: int = DEFAULT_INPUT_SIZE):
         super(sEMGHHTEncoder, self).__init__()
         
         # Validate input parameters
         if num_layers < 1:
             raise ValueError(f"num_layers must be at least 1, got {num_layers}")
-        if num_layers > 8:
-            raise ValueError(f"num_layers must be at most 8 for 256x256 input (each layer halves spatial dims), got {num_layers}")
+        
+        # Calculate maximum layers based on input size
+        # Each conv layer with stride=2 halves spatial dimensions
+        max_layers = int(math.log2(input_size))
+        if num_layers > max_layers:
+            raise ValueError(f"num_layers must be at most {max_layers} for {input_size}x{input_size} input (each layer halves spatial dims), got {num_layers}")
+        
         if base_channels < 1:
             raise ValueError(f"base_channels must be positive, got {base_channels}")
         if in_channels < 1:
@@ -155,6 +166,14 @@ class ActionQualityCNNClassifier(nn.Module):
     - 3 output classes: Full, Half, Invalid
     """
     
+    # Adaptive classifier scaling factors
+    HIDDEN_DIM_1_DIVISOR = 4  # hidden_dim_1 = feature_dim // 4
+    HIDDEN_DIM_2_DIVISOR = 8  # hidden_dim_2 = feature_dim // 8
+    HIDDEN_DIM_1_MIN = 256
+    HIDDEN_DIM_1_MAX = 1024
+    HIDDEN_DIM_2_MIN = 128
+    HIDDEN_DIM_2_MAX = 512
+    
     def __init__(self, 
                  in_channels: int = 1,
                  base_channels: int = 64,
@@ -182,8 +201,10 @@ class ActionQualityCNNClassifier(nn.Module):
         # Adaptive classification head: scale intermediate layers based on feature_dim
         # For small feature_dim (shallow networks), use smaller intermediate layers
         # For large feature_dim (deep networks), use larger intermediate layers
-        hidden_dim_1 = min(max(256, feature_dim // 4), 1024)
-        hidden_dim_2 = min(max(128, feature_dim // 8), 512)
+        hidden_dim_1 = min(max(self.HIDDEN_DIM_1_MIN, feature_dim // self.HIDDEN_DIM_1_DIVISOR), 
+                          self.HIDDEN_DIM_1_MAX)
+        hidden_dim_2 = min(max(self.HIDDEN_DIM_2_MIN, feature_dim // self.HIDDEN_DIM_2_DIVISOR), 
+                          self.HIDDEN_DIM_2_MAX)
         
         # Classification head with dropout
         self.classifier = nn.Sequential(
@@ -601,6 +622,11 @@ def save_action_quality_checkpoint(model: ActionQualityCNNClassifier,
     
     Uses temporary file and rename to ensure atomic write operation.
     Checks available disk space before saving.
+    
+    The MIN_DISK_SPACE_GB threshold (500MB) provides a safety buffer:
+    - Typical checkpoint size: 50-150MB (depending on model depth)
+    - Multiple checkpoints may be saved in one session
+    - Allows room for other processes and temporary files
     """
     checkpoint_dir = os.path.dirname(checkpoint_path)
     if checkpoint_dir and not os.path.exists(checkpoint_dir):
@@ -609,13 +635,13 @@ def save_action_quality_checkpoint(model: ActionQualityCNNClassifier,
     final_path = f"{checkpoint_path}_action_quality.pt"
     temp_path = f"{final_path}.tmp"
     
-    # Check available disk space (estimate needed: ~100MB per checkpoint)
+    # Check available disk space
     try:
         import shutil
         stat = shutil.disk_usage(checkpoint_dir if checkpoint_dir else '.')
         available_gb = stat.free / (1024 ** 3)
-        if available_gb < 0.5:  # Less than 500MB free
-            print(f"Warning: Low disk space ({available_gb:.2f} GB free). Skipping checkpoint save.")
+        if available_gb < MIN_DISK_SPACE_GB:
+            print(f"Warning: Low disk space ({available_gb:.2f} GB free, minimum {MIN_DISK_SPACE_GB} GB required). Skipping checkpoint save.")
             return
     except Exception as e:
         print(f"Warning: Could not check disk space: {e}")
