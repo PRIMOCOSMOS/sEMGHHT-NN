@@ -15,27 +15,32 @@ This project implements a dual deep learning pipeline:
 2. **SVM Classifier** for Gender Classification (M, F) - 2 classes
 
 **Key Features:**
-- ✅ Deeper CNN architecture (5 layers, 1024 channels)
-- ✅ BatchNormalization for training stability
-- ✅ Proper weight initialization (Kaiming)
-- ✅ Learning rate scheduling
-- ✅ Data normalization
-- ✅ Separate optimized models for each task
+- ✅ **Expanded CNN architecture** (7 layers, 2048 channels) - **NEW!**
+- ✅ **BatchNormalization** + Kaiming initialization for training stability
+- ✅ **Learning rate warmup** + cosine annealing scheduling
+- ✅ **Gradient clipping** to prevent explosion
+- ✅ **Label smoothing** for better generalization
+- ✅ **Separate optimized models** for each task
 
-**📖 NEW: [Dual Classifier System Guide](DUAL_CLASSIFIER_GUIDE.md)** - Complete documentation on the new architecture, improvements, and usage.
+**📖 LATEST: [Refactoring Summary](REFACTORING_SUMMARY.md)** - **NEW!** Complete details on the expanded architecture and training optimizations.
+
+**📖 [Dual Classifier System Guide](DUAL_CLASSIFIER_GUIDE.md)** - Complete documentation on the dual classifier system.
 
 ### 🏗️ Model Architecture
 
-**CNN Encoder Structure:**
-- **5 Convolutional Layers**, each containing:
-  - Conv2D (kernel=3, stride=2, padding=1)
-  - Batch Normalization (training stability)
+**Expanded CNN Encoder Structure (7 Layers):** - **UPGRADED!**
+- **7 Convolutional Layers**, each containing:
+  - Conv2D (kernel=3, stride=2, padding=1, bias=False)
+  - **Batch Normalization** (training stability)
   - LeakyReLU activation (slope=0.2)
+  - **Kaiming initialization** (proper gradient flow)
+- **Residual connections** in deeper layers
 - **Global Average Pooling** at the end
-- Output: 1024-dimensional feature vector
+- **Channel progression**: 64 → 128 → 256 → 512 → 1024 → 2048 → 2048
+- Output: **2048-dimensional feature vector** (8x larger than before!)
 
 **Classifier Options:**
-1. **Action Quality CNN**: 5-layer CNN → Dropout → FC layers → 3 classes
+1. **Action Quality CNN**: 7-layer CNN → Dropout → 3-layer FC (2048→1024→512→3) → 3 classes
 2. **Gender SVM**: CNN features → StandardScaler → RBF SVM → 2 classes
 
 ### 📊 Classification Task
@@ -53,8 +58,24 @@ This project implements a dual deep learning pipeline:
 **Class Mapping:**
 | Task | Classes | Model Type |
 |------|---------|------------|
-| Action Quality | Full, Half, Invalid | Deep CNN (5 layers) |
+| Action Quality | Full, Half, Invalid | Deep CNN (7 layers) **[UPGRADED]** |
 | Gender | M, F | SVM (RBF kernel) |
+
+### 🆕 Recent Improvements (2025-12-22)
+
+**Problem Solved:** Previous notebook had issues with loss barely decreasing and accuracy not improving.
+
+**Key Solutions:**
+1. **Expanded Network** - From 3-5 layers to **7 layers** with 2048-dim features (8x increase)
+2. **Better Initialization** - Kaiming initialization prevents vanishing/exploding gradients
+3. **Batch Normalization** - Replaced InstanceNorm for faster, more stable training
+4. **Learning Rate Strategy** - Lowered LR (0.0001) + warmup (5 epochs) + cosine annealing
+5. **Gradient Clipping** - Prevents gradient explosion in deep network
+6. **Label Smoothing** - Improves generalization and prevents overconfidence
+7. **Residual Connections** - Better gradient flow in deeper layers
+8. **AdamW Optimizer** - With weight decay for better regularization
+
+**See [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) for complete details.**
 
 ### 🚀 Quick Start
 
@@ -161,27 +182,32 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 2. **SVM分类器** 用于性别分类（男、女）- 2类
 
 **主要特点：**
-- ✅ 更深的CNN架构（5层，1024通道）
-- ✅ BatchNormalization以提高训练稳定性
-- ✅ 正确的权重初始化（Kaiming）
-- ✅ 学习率调度
-- ✅ 数据归一化
-- ✅ 每个任务的单独优化模型
+- ✅ **扩展的CNN架构**（7层，2048通道）- **新！**
+- ✅ **批归一化** + Kaiming初始化以提高训练稳定性
+- ✅ **学习率预热** + 余弦退火调度
+- ✅ **梯度裁剪**防止梯度爆炸
+- ✅ **标签平滑**提高泛化能力
+- ✅ 每个任务的**单独优化模型**
 
-**📖 新增：[双分类器系统指南](DUAL_CLASSIFIER_GUIDE.md)** - 关于新架构、改进和使用的完整文档。
+**📖 最新：[重构总结](REFACTORING_SUMMARY.md)** - **新！** 扩展架构和训练优化的完整细节。
+
+**📖 [双分类器系统指南](DUAL_CLASSIFIER_GUIDE.md)** - 关于双分类器系统的完整文档。
 
 ### 🏗️ 模型架构
 
-**CNN 编码器结构：**
-- **5 个卷积层**，每层包含：
-  - Conv2D（kernel=3, stride=2, padding=1）
-  - Batch Normalization（训练稳定性）
+**扩展的CNN编码器结构（7层）：** - **升级！**
+- **7 个卷积层**，每层包含：
+  - Conv2D（kernel=3, stride=2, padding=1, bias=False）
+  - **批归一化**（训练稳定性）
   - LeakyReLU 激活函数（slope=0.2）
+  - **Kaiming初始化**（正确的梯度流动）
+- **残差连接**在更深层中
 - 末尾使用**全局平均池化**
-- 输出：1024 维特征向量
+- **通道递增序列**：64 → 128 → 256 → 512 → 1024 → 2048 → 2048
+- 输出：**2048 维特征向量**（比之前大8倍！）
 
 **分类器选项：**
-1. **动作质量CNN**：5层CNN → Dropout → 全连接层 → 3类
+1. **动作质量CNN**：7层CNN → Dropout → 3层全连接 (2048→1024→512→3) → 3类
 2. **性别SVM**：CNN特征 → StandardScaler → RBF SVM → 2类
 
 ### 📊 分类任务
@@ -199,8 +225,24 @@ Each `.npz` file contains a 256×256 HHT matrix stored with key `'hht'`.
 **类别映射：**
 | 任务 | 类别 | 模型类型 |
 |------|------|----------|
-| 动作质量 | 全程、半程、无效 | 深度CNN（5层）|
+| 动作质量 | 全程、半程、无效 | 深度CNN（7层）**[升级]** |
 | 性别 | 男、女 | SVM（RBF核）|
+
+### 🆕 最近改进（2025-12-22）
+
+**解决的问题：** 之前的笔记本存在损失几乎不下降、准确率不提升的问题。
+
+**关键解决方案：**
+1. **扩展网络** - 从3-5层扩展到**7层**，特征维度2048（增加8倍）
+2. **更好的初始化** - Kaiming初始化防止梯度消失/爆炸
+3. **批归一化** - 替换InstanceNorm，实现更快更稳定的训练
+4. **学习率策略** - 降低学习率(0.0001) + 预热(5轮) + 余弦退火
+5. **梯度裁剪** - 防止深度网络中的梯度爆炸
+6. **标签平滑** - 提高泛化能力，防止过度自信
+7. **残差连接** - 改善深层网络的梯度流动
+8. **AdamW优化器** - 带权重衰减的更好正则化
+
+**详见 [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) 获取完整细节。**
 
 ### 🚀 快速开始
 
